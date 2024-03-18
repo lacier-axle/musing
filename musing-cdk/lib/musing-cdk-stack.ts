@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
+import { KubectlLayer } from 'aws-cdk-lib/lambda-layer-kubectl';
 // import * as sqs from 'aws-cdk-lib/aws-sqs';
 
 export class MusingCdkStack extends cdk.Stack {
@@ -13,17 +14,13 @@ export class MusingCdkStack extends cdk.Stack {
         const vpc = new cdk.aws_ec2.Vpc(this, 'musing-vpc', {
           maxAzs: 3 // Default is all AZs in the region
         });
-
-        const kubectlLayerArn = 'arn:aws:lambda:us-west-2:992382608587:layer:AWSLambda-KubectlLayerVersion-29:1';
-        const kubectlLayer = cdk.aws_lambda.LayerVersion.fromLayerVersionArn(this, 'KubectlLayer', kubectlLayerArn);
-
     
         // Create an EKS cluster
         const cluster = new cdk.aws_eks.Cluster(this, 'musing-cluster', {
           version: cdk.aws_eks.KubernetesVersion.V1_29,
           vpc: vpc,
           defaultCapacity: 2, // Default is 2 m5.large instances
-          kubectlLayer: kubectlLayer,
+          kubectlLayer: new KubectlLayer(this, 'MusingKubectlLayer'),
         });
     
         // Define the Kubernetes deployment for the Next.js app
