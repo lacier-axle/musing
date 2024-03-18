@@ -36,7 +36,7 @@ export class MusingCdkStack extends cdk.Stack {
               metadata: { labels: appLabel },
               spec: {
                 containers: [{
-                  name: "nextjs",
+                  name: "musing-nextjs",
                   image: `${nextJsAppRepo.repositoryUri}:latest`,
                   ports: [{ containerPort: 3000 }]
                 }]
