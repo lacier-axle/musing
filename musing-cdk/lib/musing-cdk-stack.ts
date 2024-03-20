@@ -31,6 +31,8 @@ export class MusingCdkStack extends cdk.Stack {
 
     // Define the Kubernetes deployment for the Next.js app
     const appLabel = { app: "musing-app" };
+
+    const containerName = "musing-nextjs";
     const deployment = {
       apiVersion: "apps/v1",
       kind: "Deployment",
@@ -42,7 +44,7 @@ export class MusingCdkStack extends cdk.Stack {
           metadata: { labels: appLabel },
           spec: {
             containers: [{
-              name: "musing-nextjs",
+              name: containerName,
               image: `${nextJsAppRepo.repositoryUri}:latest`,
               ports: [{ containerPort: 3000 }]
             }]
@@ -98,7 +100,7 @@ export class MusingCdkStack extends cdk.Stack {
           build: {
             commands: [
               `aws eks --region $AWS_DEFAULT_REGION update-kubeconfig --name ${cluster.clusterName}`,
-              `kubectl set image deployment/${deploymentName} ${cluster.clusterName}=$REPOSITORY_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION`,
+              `kubectl set image deployment/${deploymentName} ${containerName}=$REPOSITORY_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION`,
             ],
           },
         },
