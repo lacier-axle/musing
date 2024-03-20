@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { KubectlV29Layer} from '@aws-cdk/lambda-layer-kubectl-v29';
+import { ManagedPolicy } from 'aws-cdk-lib/aws-iam';
 
 export class MusingCdkStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -104,7 +105,11 @@ export class MusingCdkStack extends cdk.Stack {
       }),
     });
     nextJsAppRepo.grantPull(kubeActivateProject.grantPrincipal);
-    cluster.awsAuth.addMastersRole(kubeActivateProject.role!);
+
+    kubeActivateProject.addToRolePolicy(new cdk.aws_iam.PolicyStatement({
+      actions: ['eks:*'],
+      resources: [cluster.clusterArn],
+    }));
 
     const sourceOutput = new cdk.aws_codepipeline.Artifact();
     const sourceAction = new cdk.aws_codepipeline_actions.GitHubSourceAction({
