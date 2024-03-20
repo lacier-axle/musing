@@ -54,29 +54,26 @@ export class MusingCdkStack extends cdk.Stack {
       environment: {
         buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_5_0,
         privileged: true, // Required for Docker builds
+        environmentVariables: {
+          REPOSITORY_URI: { value: nextJsAppRepo.repositoryUri, type: cdk.aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT },
+          DOCKER_PAT: { value: "DockerPAT", type: cdk.aws_codebuild.BuildEnvironmentVariableType.SECRETS_MANAGER },
+          DOCKER_USERNAME: { value: "DOCKER_USERNAME", type: cdk.aws_codebuild.BuildEnvironmentVariableType.SECRETS_MANAGER },
+        },
       },
       buildSpec: cdk.aws_codebuild.BuildSpec.fromObject({
         version: '0.2',
         phases: {
-          pre_build: {
-            commands: [
-              // Login to Amazon ECR
-              'echo Logging in to Amazon ECR...',
-              '$(aws ecr get-login --no-include-email --region $AWS_DEFAULT_REGION)',
-            ],
-          },
           build: {
             commands: [
-              // Build the Docker image
-              'echo Building the Docker image...',
+              'cd musing-nextjs',
+              'echo $DOCKER_PAT | docker login --username $DOCKER_USERNAME --password-stdin',
               'docker build -t $REPOSITORY_URI:latest .',
-              // Tag the Docker image
               'docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION',
             ],
           },
           post_build: {
             commands: [
-              'echo Pushing the Docker image...',
+              'aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $REPOSITORY_URI',
               'docker push $REPOSITORY_URI:latest',
               'docker push $REPOSITORY_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION',
               // Add kubectl command to update the Kubernetes deployment
@@ -84,9 +81,6 @@ export class MusingCdkStack extends cdk.Stack {
               `kubectl set image deployment/${deploymentName} ${repoName}=$REPOSITORY_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION`,
             ],
           },
-        },
-        variables: {
-          REPOSITORY_URI: `${nextJsAppRepo.repositoryUri}`,
         },
       }),
     });
