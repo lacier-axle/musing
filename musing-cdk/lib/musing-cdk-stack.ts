@@ -98,7 +98,7 @@ export class MusingCdkStack extends cdk.Stack {
           build: {
             commands: [
               `aws eks --region $AWS_DEFAULT_REGION update-kubeconfig --name ${clusterName}`,
-              `kubectl set image deployment/${deploymentName} ${repoName}=$REPOSITORY_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION`,
+              `kubectl set image deployment/${cluster.clusterName} ${repoName}=$REPOSITORY_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION`,
             ],
           },
         },
