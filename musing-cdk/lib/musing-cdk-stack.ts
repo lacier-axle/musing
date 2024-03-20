@@ -138,7 +138,7 @@ export class MusingCdkStack extends cdk.Stack {
           actions: [
             new cdk.aws_codepipeline_actions.CodeBuildAction({
               actionName: 'Deploy',
-              project: dockerBuildAndPush,
+              project: kubeActivateProject,
               input: sourceOutput,
             })
           ],
