@@ -97,19 +97,19 @@ export class MusingCdkStack extends cdk.Stack {
         phases: {
           build: {
             commands: [
-              `aws eks --region $AWS_DEFAULT_REGION update-kubeconfig --name ${clusterName}`,
-              `kubectl set image deployment/${cluster.clusterName} ${repoName}=$REPOSITORY_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION`,
+              `aws eks --region $AWS_DEFAULT_REGION update-kubeconfig --name ${cluster.clusterName}`,
+              `kubectl set image deployment/${deploymentName} ${cluster.clusterName}=$REPOSITORY_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION`,
             ],
           },
         },
       }),
     });
     nextJsAppRepo.grantPull(kubeActivateProject.grantPrincipal);
-
     kubeActivateProject.addToRolePolicy(new cdk.aws_iam.PolicyStatement({
       actions: ['eks:*'],
       resources: [cluster.clusterArn],
     }));
+    cluster.awsAuth.addMastersRole(kubeActivateProject.role!);
 
     const sourceOutput = new cdk.aws_codepipeline.Artifact();
     const sourceAction = new cdk.aws_codepipeline_actions.GitHubSourceAction({
