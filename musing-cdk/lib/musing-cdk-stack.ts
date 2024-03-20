@@ -50,7 +50,7 @@ export class MusingCdkStack extends cdk.Stack {
       }
     };
 
-    const codeBuildProject = new cdk.aws_codebuild.PipelineProject(this, 'MusingNextJsBuildProject', {
+    const dockerBuildAndPush = new cdk.aws_codebuild.PipelineProject(this, 'DockerBuildAndPush', {
       environment: {
         buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_5_0,
         privileged: true, // Required for Docker builds
@@ -76,7 +76,26 @@ export class MusingCdkStack extends cdk.Stack {
               'aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $REPOSITORY_URI',
               'docker push $REPOSITORY_URI:latest',
               'docker push $REPOSITORY_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION',
-              // Add kubectl command to update the Kubernetes deployment
+            ],
+          },
+        },
+      }),
+    });
+    nextJsAppRepo.grantPullPush(dockerBuildAndPush.grantPrincipal);
+
+    const kubeActivateProject = new cdk.aws_codebuild.PipelineProject(this, 'KubeActivateProject', {
+      environment: {
+        buildImage: cdk.aws_codebuild.LinuxBuildImage.STANDARD_5_0,
+        privileged: true, // Required for Docker builds
+        environmentVariables: {
+          REPOSITORY_URI: { value: nextJsAppRepo.repositoryUri, type: cdk.aws_codebuild.BuildEnvironmentVariableType.PLAINTEXT }
+        },
+      },
+      buildSpec: cdk.aws_codebuild.BuildSpec.fromObject({
+        version: '0.2',
+        phases: {
+          build: {
+            commands: [
               `aws eks --region $AWS_DEFAULT_REGION update-kubeconfig --name ${clusterName}`,
               `kubectl set image deployment/${deploymentName} ${repoName}=$REPOSITORY_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION`,
             ],
@@ -84,9 +103,8 @@ export class MusingCdkStack extends cdk.Stack {
         },
       }),
     });
-
-    // Grant permissions to CodeBuild to push images to ECR
-    nextJsAppRepo.grantPullPush(codeBuildProject.grantPrincipal);
+    nextJsAppRepo.grantPull(kubeActivateProject.grantPrincipal);
+    cluster.awsAuth.addMastersRole(kubeActivateProject.role!);
 
     const sourceOutput = new cdk.aws_codepipeline.Artifact();
     const sourceAction = new cdk.aws_codepipeline_actions.GitHubSourceAction({
@@ -98,12 +116,6 @@ export class MusingCdkStack extends cdk.Stack {
       branch: 'main',
     });
 
-    const buildAction = new cdk.aws_codepipeline_actions.CodeBuildAction({
-      actionName: 'BuildAndPush',
-      project: codeBuildProject,
-      input: sourceOutput,
-    });
-
     const musingCodePipeline = new cdk.aws_codepipeline.Pipeline(this, 'Pipeline', {
       pipelineName: 'MusingNextJsDeployment',
       stages: [
@@ -112,13 +124,27 @@ export class MusingCdkStack extends cdk.Stack {
           actions: [sourceAction],
         },
         {
-          stageName: 'Build',
-          actions: [buildAction],
+          stageName: 'BuildAndPush',
+          actions: [
+              new cdk.aws_codepipeline_actions.CodeBuildAction({
+              actionName: 'BuildAndPush',
+              project: dockerBuildAndPush,
+              input: sourceOutput,
+            })
+          ],
         },
-        // Define deploy stage with Lambda or a custom action to update EKS deployment
+        {
+          stageName: 'Deploy',
+          actions: [
+            new cdk.aws_codepipeline_actions.CodeBuildAction({
+              actionName: 'Deploy',
+              project: dockerBuildAndPush,
+              input: sourceOutput,
+            })
+          ],
+        },
       ],
     });
-
 
     // Define the Kubernetes service to expose the Next.js app
     const service = {
