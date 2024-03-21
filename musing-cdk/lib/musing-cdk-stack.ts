@@ -18,7 +18,8 @@ export class MusingCdkStack extends cdk.Stack {
     const cluster = new cdk.aws_eks.Cluster(this, clusterName, {
       version: cdk.aws_eks.KubernetesVersion.V1_29,
       vpc: vpc,
-      defaultCapacity: 2, // Default is 2 m5.large instances
+      defaultCapacity: 1,
+      defaultCapacityInstance: cdk.aws_ec2.InstanceType.of(cdk.aws_ec2.InstanceClass.T4G, cdk.aws_ec2.InstanceSize.NANO),
       kubectlLayer: new KubectlV29Layer(this, 'MusingKubectlLayer'),
     });
 
